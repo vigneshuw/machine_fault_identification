@@ -1,0 +1,80 @@
+# The energy input measurement features
+energy_params:
+  - Power1
+  - Power2
+  - Power3
+  - PowerReac1
+  - PowerReac2
+  - PowerReac3
+  - PowerApp1
+  - PowerApp2
+  - PowerApp3
+
+# Segmentation window size
+segment_window: 60
+
+# Associating a class to files in the data folder
+class_file_association:
+  on-ref:
+    - machine_ON_ref_no-error_1.csv
+    - machine_ON_ref_no-error_2.csv
+    - machine_ON_ref_no-error_3.csv
+    - machine_ON_ref_no-error_4.csv
+    - machine_ON_ref_no-error_5.csv
+    - machine_ON_ref_no-error_6.csv
+  on-noref-error:
+    - machine_ON_no-ref_start-error_1.csv
+    - machine_ON_no-ref_start-error_2.csv
+    - machine_ON_no-ref_start-error_3.csv
+    - machine_ON_no-ref_start-error_4.csv
+  overtravel-x:
+    - machine_ON_ref_overtravel-error_x_neg_1.csv
+    - machine_ON_ref_overtravel-error_x_pos_1.csv
+    - machine_ON_no-ref_overtravel-error_x_neg_1.csv
+    - machine_ON_no-ref_overtravel-error_x_pos_1.csv
+    - machine_ON_ref_overtravel-error_x_neg_axes-extreme_1.csv
+  overtravel-y:
+    - machine_ON_ref_overtravel-error_y_neg_axes-extreme_1.csv
+    - machine_ON_ref_overtravel-error_y_neg_1.csv
+    - machine_ON_ref_overtravel-error_y_pos_1.csv
+  overtravel-z:
+    - machine_ON_ref_overtravel-error_z_neg_1.csv
+    - machine_ON_ref_overtravel-error_z_pos_1.csv
+
+# Associating labels to a class
+class_label_associations:
+  on-ref: 0
+  on-noref-error: 1
+  overtravel-x: 2
+  overtravel-y: 3
+  overtravel-z: 4
+
+# The models to be trained
+models:
+  LogisticRegression:
+    max_iter: !!python/long 1000000000
+    multi_class: multinomial
+    n_jobs: 4
+    C: 0.1    # Needed for convergence
+    tol: !!python/float 0.1
+    class_weight: balanced
+  DecisionTreeClassifier:
+    min_samples_split: 100
+    class_weight: balanced
+    min_samples_leaf: 1
+    max_depth: null
+  KNeighborsClassifier:
+    n_neighbors: 5
+  SVC:
+    kernel: linear
+    tol: !!python/float 0.001
+    class_weight: balanced
+  BaggingClassifier:
+    n_estimators: 10
+  RandomForestClassifier:
+    class_weight: balanced
+    max_depth: 15
+    min_samples_leaf: 1
+    min_samples_split: 100
+    n_estimators: 100
+
