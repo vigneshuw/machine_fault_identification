@@ -106,7 +106,7 @@ if __name__ == "__main__":
         for row in class_segmented_data[class_instance]:
             computed_features = []
             for col in row:
-                freq_args = [{"axis": 0}, {"axis": 0}, {"axis": 0, "nperseg": 30}]
+                freq_args = [{"axis": 0}, {"axis": 0}, {"axis": 0, "nperseg": 15}]
                 freq_time_args = [{"wavelet": "db1"}, {"wavelet": "db1"}, {"wavelet": "db1"}]
 
                 computed_features += feature_extraction.compute_all_features(col, freq_args=freq_args,
