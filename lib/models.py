@@ -14,7 +14,7 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn import preprocessing
 from sklearn.base import clone
 from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold
 
 from lib import model_evaluations
 
@@ -167,15 +167,18 @@ class Models:
             self.is_trained = False
 
         # Get the KFold
-        kf = KFold(n_splits=kfolds, shuffle=False)
+        kf = StratifiedKFold(n_splits=kfolds, shuffle=True)
 
+        # Get a count of the labels in dataset
+        unique_labels = np.unique(y)
+        minority_labels = unique_labels[1:].tolist()
         # Evaluation arguments
         kwargs = {
             "accuracy_score": {},
             "balanced_accuracy_score": {},
-            "f1_score": {"average": "micro"},
-            "recall_score": {"average": "micro"},
-            "precision_score": {"average": "micro"},
+            "f1_score": {"labels": minority_labels, "average": "micro"},
+            "recall_score": {"labels": minority_labels, "average": "micro"},
+            "precision_score": {"labels": minority_labels, "average": "micro"},
 
         }
 
@@ -190,7 +193,7 @@ class Models:
             f1_score_check[model_name] = -1
 
         # Run the algorithm
-        for fold, (train_indices, test_indices) in enumerate(kf.split(X)):
+        for fold, (train_indices, test_indices) in enumerate(kf.split(X, y)):
 
             # Get the test and train data
             X_train, X_test = X[train_indices], X[test_indices]
