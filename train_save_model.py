@@ -6,6 +6,9 @@ import pickle
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import IsolationForest
+from sklearn.decomposition import PCA
 from lib import data_prep, feature_extraction, models
 from sklearn.utils import shuffle
 from joblib import dump
@@ -145,6 +148,8 @@ if __name__ == "__main__":
     X, y = shuffle(X, y, random_state=42)
     # To a vector format
     y = np.squeeze(y)
+    # Make a copy of X
+    X_copy = np.copy(X)
 
     # Standardize the data if required
     sys.stdout.write("=" * 80 + "\n")
@@ -153,18 +158,6 @@ if __name__ == "__main__":
         scaler = scaler.fit(X)  # Fit
         X = scaler.transform(X)
         sys.stdout.write(f"The training data has been scaled\n")
-
-        # Saving the metrics
-        metrics_info = {
-            "name": "StandardScaler",
-            "params": scaler.get_params(deep=True),
-            "object": scaler,
-            "mean_": scaler.mean_,
-            "var": scaler.var_,
-            "n_features_in_": scaler.n_features_in_,
-            "n_samples_seen_": scaler.n_samples_seen_
-        }
-        metrics_save_name = "standardization_standard-scaler.pkl"
 
     sys.stdout.write(f"The final combined shape-{X.shape}\n")
 
@@ -189,22 +182,27 @@ if __name__ == "__main__":
     ##################################################
     # Saving the models
     ##################################################
+    # Create pipelines
+    models_pipelines = {}
+    for model_name in models_repo.trained_model_dict.keys():
+        models_pipelines[model_name] = []
+        if args.standardize:
+            models_pipelines[model_name].append(("standardize", scaler))
+
+        models_pipelines[model_name].append(("clf", models_repo.trained_model_dict[model_name]))
+        # Construct the Pipeline
+        models_pipelines[model_name] = Pipeline(models_pipelines[model_name])
+
     # Save the trained models
-    save_location = args.save_location
+    save_location = os.path.join(args.save_location, "multi_class")
     if not os.path.isdir(save_location):
         os.makedirs(save_location)
-    for model_name in models_repo.trained_model_dict.keys():
+    for model_name, model in models_pipelines.items():
         model_save_fname = os.path.join(save_location, model_name + ".joblib")
-        dump(models_repo.trained_model_dict[model_name], model_save_fname)
+        dump(model, model_save_fname)
 
     sys.stdout.write("=" * 80 + "\n")
     sys.stdout.write("Trained Models Saved!\n")
-
-    # Save the preprocessing metrics as well
-    if args.standardize:
-        with open(os.path.join(save_location, metrics_save_name), "wb") as file_handle:
-            pickle.dump(metrics_info, file_handle, protocol=pickle.HIGHEST_PROTOCOL)
-        sys.stdout.write("The preprocessing information saved!\n")
 
     # Uploading the files to S3 bucket
     sys.stdout.write("=" * 80 + "\n")
@@ -213,10 +211,10 @@ if __name__ == "__main__":
         # Get the client
         s3 = boto3.resource("s3")
         # Upload model files
-        for model_name in models_repo.trained_model_dict.keys():
+        for model_name in models_pipelines.keys():
             model_saved_location = os.path.join(save_location, model_name + ".joblib")
             # Get the s3 object
-            s3_object = s3.Object(bucket_name, f"energy_monitoring/{model_name}/{model_name}" + ".joblib")
+            s3_object = s3.Object(bucket_name, f"energy_monitoring/multi_class/{model_name}/{model_name}" + ".joblib")
             result = s3_object.put(Body=open(model_saved_location, "rb"))
             res = result.get("ResponseMetadata")
 
@@ -226,13 +224,87 @@ if __name__ == "__main__":
             else:
                 sys.stdout.write(f"File - {model_name} upload failed!\n")
 
-        # Save the preprocessing information as well
-        s3_object = s3.Object(bucket_name, f"energy_monitoring/{metrics_save_name}")
-        result = s3_object.put(Body=open(os.path.join(save_location, metrics_save_name), "rb"))
-        res = result.get("ResponseMetadata")
-        # Check for success
-        if res.get('HTTPStatusCode') == 200:
-            sys.stdout.write(f"File - {metrics_save_name} uploaded successfully!\n")
-        else:
-            sys.stdout.write(f"File - {metrics_save_name} upload failed!\n")
+    ##################################################
+    # Anomaly Detection models
+    ##################################################
+    sys.stdout.write("=" * 160 + "\n" + "Anomaly Detection" + "\n" + "=" * 160 + "\n")
+
+    # Initialize the three models
+    md_params = yaml_file_params["anomaly_detection_models"]["MahalanobisDistance"]
+    md_model = models.MahalanobisDistanceClassifer(**md_params)
+
+    kde_params = yaml_file_params["anomaly_detection_models"]["KernelDensityEstimation"]
+    kde_model = models.KDEAnomalyDetector(**kde_params)
+
+    isoforest_params = yaml_file_params["anomaly_detection_models"]["IsolationForest"]
+    isoforest_model = IsolationForest(**isoforest_params)
+
+    # Initialize the data as required
+    X = np.copy(class_dataset_features["on-ref"])
+    sys.stdout.write(f"The shape of the class for anomaly detection {X.shape}\n")
+    pca_params = yaml_file_params["anomaly_detection_models"]["PCA"]
+    pca = PCA(**pca_params)
+    X_pca = pca.fit_transform(X)
+    sys.stdout.write(f"The shape of the class for anomaly detection after PCA reduction {X_pca.shape}\n")
+
+    # Fit the models
+    md_model.fit(X_pca)
+    kde_model.fit(X_pca)
+    isoforest_model.fit(X)
+
+    # Create pipelines
+    md_estimator = [
+        ('reduce_dim', pca),
+        ('clf', md_model)
+    ]
+    md_pipeline = Pipeline(md_estimator)
+    kde_estimator = [
+        ('reduce_dim', pca),
+        ('clf', kde_model)
+    ]
+    kde_pipeline = Pipeline(kde_estimator)
+    isoforest_estimator = [
+        ('clf', isoforest_model)
+    ]
+    isoforest_pipeline = Pipeline(isoforest_estimator)
+    # Combine all pipelines
+    anomaly_models_pipelines = {
+        "MahalanobisDistance": md_pipeline,
+        "KernelDensityEstimation": kde_pipeline,
+        "IsolationForest": isoforest_pipeline
+    }
+
+    sys.stdout.write("Training Complete and Pipelines Created!\n")
+
+    # Saving the pipeline
+    save_location = os.path.join(args.save_location, "anomaly_detection")
+    if not os.path.isdir(save_location):
+        os.makedirs(save_location)
+    for model_name, model in anomaly_models_pipelines.items():
+        model_save_fname = os.path.join(save_location, model_name + ".joblib")
+        dump(model, model_save_fname)
+
+    sys.stdout.write("=" * 80 + "\n")
+    sys.stdout.write("Anomaly Detection Models Saved!\n")
+
+    # Uploading the files to S3 bucket
+    sys.stdout.write("=" * 80 + "\n")
+    bucket_name = args.bucket_name
+    if bucket_name is not None:
+        # Get the client
+        s3 = boto3.resource("s3")
+        # Upload model files
+        for model_name in anomaly_models_pipelines.keys():
+            model_saved_location = os.path.join(save_location, model_name + ".joblib")
+            # Get the s3 object
+            s3_object = s3.Object(bucket_name, f"energy_monitoring/anomaly_detection/{model_name}/{model_name}" +
+                                  ".joblib")
+            result = s3_object.put(Body=open(model_saved_location, "rb"))
+            res = result.get("ResponseMetadata")
+
+            # Check the upload status
+            if res.get('HTTPStatusCode') == 200:
+                sys.stdout.write(f"File - {model_name} uploaded successfully!\n")
+            else:
+                sys.stdout.write(f"File - {model_name} upload failed!\n")
 

@@ -22,6 +22,8 @@ class_file_association:
     - machine_ON_ref_no-error_4.csv
     - machine_ON_ref_no-error_5.csv
     - machine_ON_ref_no-error_6.csv
+    - machine_ON_ref_no-error_7.csv
+    - machine_ON_ref_no-error_8.csv
   on-noref-error:
     - machine_ON_no-ref_start-error_1.csv
     - machine_ON_no-ref_start-error_2.csv
@@ -33,10 +35,13 @@ class_file_association:
     - machine_ON_no-ref_overtravel-error_x_neg_1.csv
     - machine_ON_no-ref_overtravel-error_x_pos_1.csv
     - machine_ON_ref_overtravel-error_x_neg_axes-extreme_1.csv
+    - machine_ON_ref_overtravel-error_x_neg_axes-extreme_2.csv
+    - machine_ON_ref_overtravel-error_x_pos_axes-extreme_1.csv
   overtravel-y:
     - machine_ON_ref_overtravel-error_y_neg_axes-extreme_1.csv
     - machine_ON_ref_overtravel-error_y_neg_1.csv
     - machine_ON_ref_overtravel-error_y_pos_1.csv
+    - machine_ON_ref_overtravel-error_y_pos_axes-extreme_1.csv
   overtravel-z:
     - machine_ON_ref_overtravel-error_z_neg_1.csv
     - machine_ON_ref_overtravel-error_z_pos_1.csv
@@ -77,4 +82,21 @@ models:
     min_samples_leaf: 1
     min_samples_split: 100
     n_estimators: 100
+
+# The anomaly detection models
+anomaly_detection_models:
+  PCA:
+    n_components: 140
+    svd_solver: full
+  MahalanobisDistance:
+    threshold_level: 3
+    rowvar: !!python/bool false
+  KernelDensityEstimation:
+    quantile_threshold: !!python/float 0.02
+    kernel: gaussian
+  IsolationForest:
+    n_estimators: 100
+    bootstrap: !!python/bool true
+    contamination: !!python/float 0.1
+
 
