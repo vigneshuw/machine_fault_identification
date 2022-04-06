@@ -45,6 +45,7 @@ class_file_association:
   overtravel-z:
     - machine_ON_ref_overtravel-error_z_neg_1.csv
     - machine_ON_ref_overtravel-error_z_pos_1.csv
+    - machine_ON_ref_overtravel-error_z_pos_axes-extreme_1.csv
 
 # Associating labels to a class
 class_label_associations:
@@ -54,7 +55,7 @@ class_label_associations:
   overtravel-y: 3
   overtravel-z: 4
 
-# The models to be trained
+# The scripts to be trained
 models:
   LogisticRegression:
     max_iter: !!python/long 1000000000
@@ -83,7 +84,7 @@ models:
     min_samples_split: 100
     n_estimators: 100
 
-# The anomaly detection models
+# The anomaly detection scripts
 anomaly_detection_models:
   PCA:
     n_components: 140

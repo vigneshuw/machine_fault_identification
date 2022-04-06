@@ -1,15 +1,16 @@
 import sys
 import os
+# Bring the library into path
+sys.path.append(os.path.join(os.getcwd(), "lib"))
 import argparse
 import yaml
-import pickle
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import IsolationForest
 from sklearn.decomposition import PCA
 from lib import data_prep, feature_extraction, models
+from anomaly_detection_models import MahalanobisDistanceClassifer, KDEAnomalyDetector, IsolationForestClassifier
 from sklearn.utils import shuffle
 from joblib import dump
 import boto3
@@ -25,7 +26,8 @@ if __name__ == "__main__":
     # train data location
     parser.add_argument("-d", "--data_location", default="DATA", help="The directory of the data files")
     # standardize requirement
-    parser.add_argument("--standardize", action="store_true")
+    parser.add_argument("--standardize", action="store_true", help="Flag; If multiclass model's standardization is "
+                                                                   "required")
     # model save location
     parser.add_argument("-sl", "--save_location", default="trained_models",
                         help="Location to save the trained model")
@@ -231,13 +233,13 @@ if __name__ == "__main__":
 
     # Initialize the three models
     md_params = yaml_file_params["anomaly_detection_models"]["MahalanobisDistance"]
-    md_model = models.MahalanobisDistanceClassifer(**md_params)
+    md_model = MahalanobisDistanceClassifer(**md_params)
 
     kde_params = yaml_file_params["anomaly_detection_models"]["KernelDensityEstimation"]
-    kde_model = models.KDEAnomalyDetector(**kde_params)
+    kde_model = KDEAnomalyDetector(**kde_params)
 
     isoforest_params = yaml_file_params["anomaly_detection_models"]["IsolationForest"]
-    isoforest_model = IsolationForest(**isoforest_params)
+    isoforest_model = IsolationForestClassifier(**isoforest_params)
 
     # Initialize the data as required
     X = np.copy(class_dataset_features["on-ref"])
@@ -282,7 +284,8 @@ if __name__ == "__main__":
         os.makedirs(save_location)
     for model_name, model in anomaly_models_pipelines.items():
         model_save_fname = os.path.join(save_location, model_name + ".joblib")
-        dump(model, model_save_fname)
+        with open(model_save_fname, "wb") as file_handle:
+            dump(model, file_handle)
 
     sys.stdout.write("=" * 80 + "\n")
     sys.stdout.write("Anomaly Detection Models Saved!\n")
