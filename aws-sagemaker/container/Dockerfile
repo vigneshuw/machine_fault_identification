@@ -26,14 +26,15 @@ ENV PYTHONUNBUFFERED=TRUE
 ENV PYTHONDONTWRITEBYTECODE=TRUE
 ENV PATH="/opt/program:${PATH}"
 
-# Copy the trained models to a specific location
+# Copy the trained scripts to a specific location
 COPY trained_models /opt/ml/models
-# Copy the preprocessor - standardization
-COPY preprocessors /opt/ml/preprocessors
 
 # Setup the program in image
-COPY models /opt/program
+COPY scripts /opt/program
 WORKDIR /opt/program
+
+# Testing - Expose ports and comment out ENTRYPOINT
+# EXPOSE 8080
 
 # Set the entry point
 ENTRYPOINT ["python", "serve"]
