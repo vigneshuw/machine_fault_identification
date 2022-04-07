@@ -8,7 +8,11 @@ def segment_data(file_name, col_names, segment_secs):
 
     # Read the data
     cols_to_read = ["no", "sample_time"] + col_names
+    # !!! This does not arrange columns for you=
     df = pd.read_csv(file_name, sep=",", header="infer", index_col="no", usecols=cols_to_read)
+    # Ensure the column ordering - very important
+    # sample time is included as they will be removed later
+    df = df[["sample_time"] + col_names]
 
     # Get the split indices and configuration
     df_length_secs = df.count()[0]
