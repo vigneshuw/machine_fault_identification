@@ -1,3 +1,4 @@
+import copy
 import sys
 import os
 # Bring the library into path
@@ -5,7 +6,6 @@ sys.path.append(os.path.join(os.getcwd(), "lib"))
 import argparse
 import yaml
 import numpy as np
-import pandas as pd
 from sklearn import preprocessing
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
@@ -14,6 +14,7 @@ from anomaly_detection_models import MahalanobisDistanceClassifer, KDEAnomalyDet
 from sklearn.utils import shuffle
 from joblib import dump
 import boto3
+import copy
 
 
 if __name__ == "__main__":
@@ -123,17 +124,35 @@ if __name__ == "__main__":
         # Add to class instance
         class_dataset_features[class_instance] = np.array(dataset_features)
 
-    # print the results for verification
-    sys.stdout.write("=" * 80 + "\n")
-    sys.stdout.write("After feature extraction process\n")
-    for class_instance in class_dataset_features.keys():
-        sys.stdout.write(f'\tFor the class-{class_instance} , the extracted features has the '
-                         f'shape={class_dataset_features[class_instance].shape}\n')
-
     ##################################################
     # Generate training data
     ##################################################
     class_label_associations = yaml_file_params["class_label_associations"]
+    # Check for combine overtravel flag
+    if yaml_file_params["train_flags"]["combine_overtravel"]:
+        # Modify label association
+        class_label_associations["overtravel"] = 2
+        class_label_associations.pop("overtravel-x")
+        class_label_associations.pop("overtravel-y")
+        class_label_associations.pop("overtravel-z")
+
+        # Append the values
+        class_dataset_features["overtravel"] = copy.deepcopy(class_dataset_features["overtravel-x"])
+        class_dataset_features["overtravel"] = np.append(class_dataset_features["overtravel"],
+                                                         class_dataset_features["overtravel-y"], axis=0)
+        class_dataset_features["overtravel"] = np.append(class_dataset_features["overtravel"],
+                                                         class_dataset_features["overtravel-z"], axis=0)
+        class_dataset_features.pop("overtravel-x")
+        class_dataset_features.pop("overtravel-y")
+        class_dataset_features.pop("overtravel-z")
+
+    # print the results for verification
+    sys.stdout.write("=" * 80 + "\n")
+    sys.stdout.write("After feature extraction process\n")
+    for class_instance in class_dataset_features.keys():
+        sys.stdout.write(f'\tFor the class-{class_instance}, the extracted features has the '
+                         f'shape={class_dataset_features[class_instance].shape}\n')
+
     for index, class_instance in enumerate(class_dataset_features.keys()):
 
         temp_X = class_dataset_features[class_instance]
@@ -167,9 +186,8 @@ if __name__ == "__main__":
     # Model development
     ##################################################
     # No hyper-parameter optimization here
-    model_params = yaml_file_params["models"]
+    model_params = yaml_file_params["multi-class_models"]
 
-    # CV-fold training
     # Create repo of models
     models_repo = models.Models()
     # Initialize the models
@@ -231,54 +249,60 @@ if __name__ == "__main__":
     ##################################################
     sys.stdout.write("=" * 160 + "\n" + "Anomaly Detection" + "\n" + "=" * 160 + "\n")
 
-    # Initialize the three models
-    md_params = yaml_file_params["anomaly_detection_models"]["MahalanobisDistance"]
-    md_model = MahalanobisDistanceClassifer(**md_params)
+    # Read the YAML file
+    anomaly_models_inits = yaml_file_params["anomaly_detection_models"]
 
-    kde_params = yaml_file_params["anomaly_detection_models"]["KernelDensityEstimation"]
-    kde_model = KDEAnomalyDetector(**kde_params)
-
-    isoforest_params = yaml_file_params["anomaly_detection_models"]["IsolationForest"]
-    isoforest_model = IsolationForestClassifier(**isoforest_params)
+    # Get the current models
+    anomaly_models = {
+        "MahalanobisDistanceClassifier": MahalanobisDistanceClassifer,
+        "KDEAnomalyDetector": KDEAnomalyDetector,
+        "IsolationForestClassifier": IsolationForestClassifier
+    }
+    # Initialize the models with parameters
+    for model_name, model in anomaly_models.items():
+        anomaly_models[model_name] = model(**anomaly_models_inits[model_name]["model_parameters"])
 
     # Initialize the data as required
     X = np.copy(class_dataset_features["on-ref"])
-    sys.stdout.write(f"The shape of the class for anomaly detection {X.shape}\n")
-    pca_params = yaml_file_params["anomaly_detection_models"]["PCA"]
-    pca = PCA(**pca_params)
-    X_pca = pca.fit_transform(X)
-    sys.stdout.write(f"The shape of the class for anomaly detection after PCA reduction {X_pca.shape}\n")
+    sys.stdout.write(f"The shape of the data for anomaly detection {X.shape}\n")
 
-    # Fit the models
-    md_model.fit(X_pca)
-    kde_model.fit(X_pca)
-    isoforest_model.fit(X)
+    sys.stdout.write("=" * 80 + "\n")
+    # Generate model pipelines
+    anomaly_models_pipelines = {}
+    for model_name in anomaly_models.keys():
 
-    # Create pipelines
-    md_estimator = [
-        ('reduce_dim', pca),
-        ('clf', md_model)
-    ]
-    md_pipeline = Pipeline(md_estimator)
-    kde_estimator = [
-        ('reduce_dim', pca),
-        ('clf', kde_model)
-    ]
-    kde_pipeline = Pipeline(kde_estimator)
-    isoforest_estimator = [
-        ('clf', isoforest_model)
-    ]
-    isoforest_pipeline = Pipeline(isoforest_estimator)
-    # Combine all pipelines
-    anomaly_models_pipelines = {
-        "MahalanobisDistance": md_pipeline,
-        "KernelDensityEstimation": kde_pipeline,
-        "IsolationForest": isoforest_pipeline
-    }
+        # Start with empty pipeline
+        pipeline = []
 
+        # Check for PCA requirement
+        if "PCA" in anomaly_models_inits[model_name].keys():
+            pca_params = anomaly_models_inits[model_name]["PCA"]
+            pca = PCA(**pca_params)
+            X_pca = pca.fit_transform(X)
+            # Fit the model to PCA transformed data
+            anomaly_models[model_name].fit(X_pca)
+
+            # Add PCA to pipeline
+            pipeline.append(("reduce_dim", pca))
+
+            # Print for validation
+            sys.stdout.write(f"Model - {model_name} trained with PCA reduction\n")
+
+        else:
+            # Fit to regular data
+            anomaly_models[model_name].fit(X)
+
+            # Print for validation
+            sys.stdout.write(f"Model - {model_name} trained without PCA reduction\n")
+
+        # Add model to pipeline
+        pipeline.append(("clf", anomaly_models[model_name]))
+
+        # Store for saving the file
+        anomaly_models_pipelines[model_name] = pipeline
     sys.stdout.write("Training Complete and Pipelines Created!\n")
 
-    # Saving the pipeline
+    # Saving the pipelines
     save_location = os.path.join(args.save_location, "anomaly_detection")
     if not os.path.isdir(save_location):
         os.makedirs(save_location)

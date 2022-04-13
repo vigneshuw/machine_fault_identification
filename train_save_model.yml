@@ -10,8 +10,9 @@ energy_params:
   - PowerApp2
   - PowerApp3
 
-# Segmentation window size
+# Segmentation window size and other properties as required
 segment_window: 60
+n_per_seg: 15
 
 # Associating a class to files in the data folder
 class_file_association:
@@ -24,11 +25,15 @@ class_file_association:
     - machine_ON_ref_no-error_6.csv
     - machine_ON_ref_no-error_7.csv
     - machine_ON_ref_no-error_8.csv
+    - machine_ON_ref_no-error_9.csv
+    - machine_ON_ref_no-error_10.csv
   on-noref-error:
     - machine_ON_no-ref_start-error_1.csv
     - machine_ON_no-ref_start-error_2.csv
     - machine_ON_no-ref_start-error_3.csv
     - machine_ON_no-ref_start-error_4.csv
+    - machine_ON_no-ref_1.csv
+    - machine_ON_no-ref_2.csv
   overtravel-x:
     - machine_ON_ref_overtravel-error_x_neg_1.csv
     - machine_ON_ref_overtravel-error_x_pos_1.csv
@@ -44,8 +49,13 @@ class_file_association:
     - machine_ON_ref_overtravel-error_y_pos_axes-extreme_1.csv
   overtravel-z:
     - machine_ON_ref_overtravel-error_z_neg_1.csv
+    - machine_ON_ref_overtravel-error_z_neg_axes-extreme_1.csv
     - machine_ON_ref_overtravel-error_z_pos_1.csv
     - machine_ON_ref_overtravel-error_z_pos_axes-extreme_1.csv
+
+# Training flags
+train_flags:
+  combine_overtravel: !!python/bool true
 
 # Associating labels to a class
 class_label_associations:
@@ -56,7 +66,7 @@ class_label_associations:
   overtravel-z: 4
 
 # The scripts to be trained
-models:
+multi-class_models:
   LogisticRegression:
     max_iter: !!python/long 1000000000
     multi_class: multinomial
@@ -86,18 +96,26 @@ models:
 
 # The anomaly detection scripts
 anomaly_detection_models:
-  PCA:
-    n_components: 140
-    svd_solver: full
-  MahalanobisDistance:
-    threshold_level: 3
-    rowvar: !!python/bool false
-  KernelDensityEstimation:
-    quantile_threshold: !!python/float 0.02
-    kernel: gaussian
-  IsolationForest:
-    n_estimators: 100
-    bootstrap: !!python/bool true
-    contamination: !!python/float 0.1
-
-
+  MahalanobisDistanceClassifier:
+    model_parameters:
+      threshold_level: 3
+      rowvar: !!python/bool false
+    PCA:
+      n_components: 140
+      svd_solver: full
+  KDEAnomalyDetector:
+    model_parameters:
+      quantile_threshold: !!python/float 0.02
+      kernel: gaussian
+    PCA:
+      n_components: 140
+      svd_solver: full
+  IsolationForestClassifier:
+    model_parameters:
+      n_estimators: 100
+      bootstrap: !!python/bool true
+      contamination: !!python/float 0.1
+    PCA:
+      # Remove below if PCA is not required
+      n_components: 140
+      svd_solver: full
