@@ -1,4 +1,3 @@
-import copy
 import sys
 import os
 # Bring the library into path
@@ -299,7 +298,7 @@ if __name__ == "__main__":
         pipeline.append(("clf", anomaly_models[model_name]))
 
         # Store for saving the file
-        anomaly_models_pipelines[model_name] = pipeline
+        anomaly_models_pipelines[model_name] = Pipeline(pipeline)
     sys.stdout.write("Training Complete and Pipelines Created!\n")
 
     # Saving the pipelines

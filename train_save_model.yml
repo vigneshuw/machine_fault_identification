@@ -27,6 +27,7 @@ class_file_association:
     - machine_ON_ref_no-error_8.csv
     - machine_ON_ref_no-error_9.csv
     - machine_ON_ref_no-error_10.csv
+    - machine_ON_ref_no-error_11.csv
   on-noref-error:
     - machine_ON_no-ref_start-error_1.csv
     - machine_ON_no-ref_start-error_2.csv
