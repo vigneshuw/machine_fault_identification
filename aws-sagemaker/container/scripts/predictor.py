@@ -107,7 +107,7 @@ def transformation():
     print(f"Invoked with {data.shape} records")
 
     # TODO: Combine Feature Extraction in pipeline
-    freq_args = [{"axis": 0}, {"axis": 0}, {"axis": 0, "nperseg": 30}]
+    freq_args = [{"axis": 0}, {"axis": 0}, {"axis": 0, "nperseg": 15}]
     freq_time_args = [{"wavelet": "db1"}, {"wavelet": "db1"}, {"wavelet": "db1"}]
     # Apply col by col
     computed_features = []
