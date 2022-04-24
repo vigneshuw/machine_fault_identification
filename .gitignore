@@ -10,6 +10,7 @@
 
 # Ignore trained models 
 *.joblib
+**/trained_models
 
 # Ignoring the IDE based files 
 **/__pycache__
