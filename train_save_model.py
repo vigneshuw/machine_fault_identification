@@ -14,6 +14,26 @@ from sklearn.utils import shuffle
 from joblib import dump
 import boto3
 import copy
+import concurrent.futures
+
+
+def compute_features(data, wavelet_nperseg):
+    # Set the right arguments
+    freq_args = [{"axis": 0}, {"axis": 0}, {"axis": 0, "nperseg": wavelet_nperseg}]
+    freq_time_args = [{"wavelet": "db1"}, {"wavelet": "db1"}, {"wavelet": "db1"}]
+
+    # Compute features
+    dataset_features = []
+    for row in data:
+        computed_features = []
+        for col in row:
+
+            computed_features += feature_extraction.compute_all_features(col, freq_args=freq_args,
+                                                                             freq_time_args=freq_time_args)
+        # Append to a list
+        dataset_features.append(computed_features)
+
+    return np.array(dataset_features)
 
 
 if __name__ == "__main__":
@@ -60,7 +80,8 @@ if __name__ == "__main__":
     segmented_data = {}
     for file_name in file_names:
         path = os.path.join(data_loc, file_name)
-        temp = data_prep.segment_data(file_name=path, col_names=chosen_cols, segment_secs=segment_secs)
+        temp = data_prep.segment_data(file_name=path, col_names=chosen_cols, segment_secs=segment_secs,
+                                      overlap_rate=yaml_file_params["overlap_rate"])
         # Remove the sample_time col
         temp = temp[:, 1:, :]
         segmented_data[file_name] = temp
@@ -105,23 +126,26 @@ if __name__ == "__main__":
     ##################################################
     # Feature extraction
     ##################################################
+
     class_dataset_features = {}
+    num_cores = 16
     for class_instance in class_segmented_data.keys():
-        dataset_features = []
-        for row in class_segmented_data[class_instance]:
-            computed_features = []
-            for col in row:
-                freq_args = [{"axis": 0}, {"axis": 0}, {"axis": 0, "nperseg": 15}]
-                freq_time_args = [{"wavelet": "db1"}, {"wavelet": "db1"}, {"wavelet": "db1"}]
+        # Split the array
+        data_list = np.array_split(class_segmented_data[class_instance], num_cores, axis=0)
 
-                computed_features += feature_extraction.compute_all_features(col, freq_args=freq_args,
-                                                                             freq_time_args=freq_time_args)
+        # Parallel
+        dataset_features = None
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = [executor.submit(compute_features, data, yaml_file_params["n_per_seg"]) for data in data_list]
 
-            # Append to a list
-            dataset_features.append(computed_features)
+            for index, result in enumerate(concurrent.futures.as_completed(results)):
+                if index == 0:
+                    dataset_features = result.result()
+                else:
+                    dataset_features = np.append(dataset_features, result.result(), axis=0)
 
-        # Add to class instance
-        class_dataset_features[class_instance] = np.array(dataset_features)
+        # Convert to numpy array
+        class_dataset_features[class_instance] = dataset_features
 
     ##################################################
     # Generate training data
