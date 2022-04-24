@@ -8,6 +8,9 @@
 # Ignore preprocessed data 
 **/model_data
 
+# Ignore trained models 
+*.joblib
+
 # Ignoring the IDE based files 
 **/__pycache__
 **/.ipynb_checkpoints
