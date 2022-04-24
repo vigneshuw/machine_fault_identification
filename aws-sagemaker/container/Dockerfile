@@ -19,7 +19,7 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python
 RUN ln -sf /usr/bin/pip3 /usr/bin/pip
 
 # Install the python pakages required
-RUN pip --no-cache-dir install numpy==1.19.5 scipy==1.5.3 scikit-learn==0.24.2 PyWavelets pandas flask gunicorn
+RUN pip --no-cache-dir install numpy==1.19.5 scipy==1.5.3 scikit-learn==1.0.2 PyWavelets pandas flask gunicorn
 
 # Setting some environment variables
 ENV PYTHONUNBUFFERED=TRUE
