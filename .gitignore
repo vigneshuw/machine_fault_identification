@@ -1,4 +1,4 @@
-# Applye system
+# Apple system
 .DS_Store
 
 # huge datasets
@@ -15,3 +15,6 @@
 # Ignoring the IDE based files 
 **/__pycache__
 **/.ipynb_checkpoints
+
+# Ignore the garbage collector
+**/garbage_collector
