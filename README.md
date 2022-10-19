@@ -21,3 +21,36 @@ Ability to detect faults in manufacturing machines have become crucial in the er
 5. **results** -> Results from model evaluation and the feature importance study conducted.
 6. **testing** -> Scripts to test the hosted models.
 
+## Running the script
+
+Running the scripts in this repository is multiple parts
+
+### Model training
+
+```shell
+bash train_transfer_models.sh
+```
+
+- Needs a `DATA` with model training data as `csv` files.
+- Following updates needs to be done to cater to your own data.
+  - `train_save_model.yml` contains information on class association and best model parameters.
+  - `trained_models` directory to save the trained models.
+  - S3 bucket to upload the models if required.
+- Finally, the shell script copies the trained to the directory `./aws-sagemaker/container/trained_models/`.
+- Both supervised and unsupervised models are trained.
+
+### Container creation
+
+```shell
+bash ./aws-sagemaker/container/build_and_push.sh <image_name>
+```
+
+- Create a container with the trained models and flash endpoint and pushed it to AWS-ECR
+- Following updates needs to be done to cater to your own data.
+  - Ensure to set the AWS credentials
+  - Ensure to have appropriate permissions at the AWS
+
+### Sagemaker Deployment
+
+- Refer to the jupyter notebook `deploy_serverless_endpoints.ipynb` for more details on the process
+  - The jupyter notebook can be found in `./aws-sagemaker`
